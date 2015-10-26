@@ -193,13 +193,19 @@ VALUE libsox_format_seek(VALUE format, VALUE offset, VALUE whence){
   return INT2NUM(sox_seek(c_format, NUM2LONG(offset), NUM2INT(whence)));
 }
 
+// LibSoX
+VALUE libsox_format_init(VALUE self) {
+  int i = sox_format_init();
+  return INT2NUM(i);
+}
+
 VALUE libsox_open_read(int argc, VALUE *argv, VALUE libsox) {
   VALUE path, signal, encoding, filetype;
   sox_signalinfo_t   *c_signal   = NULL;
   sox_encodinginfo_t *c_encoding = NULL;
   sox_format_t       *c_format;
 
-  libsox_format_init();
+  sox_format_init();
   rb_scan_args(argc, argv, "13", &path, &signal, &encoding, &filetype);
   if (!NIL_P(signal)) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
   if (!NIL_P(encoding)) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
@@ -218,7 +224,7 @@ VALUE libsox_open_write(int argc, VALUE *argv, VALUE self) {
   sox_oob_t *c_oob = NULL;
   sox_format_t *c_format;
 
-  libsox_format_init();
+  sox_format_init();
   rb_scan_args(argc, argv, "14", &path, &signal, &encoding, &filetype, &oob);
   if (signal != Qnil) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
   if (encoding != Qnil) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
@@ -232,8 +238,6 @@ VALUE libsox_open_write(int argc, VALUE *argv, VALUE self) {
   return Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
 }
 
-
-// LibSoX
 static void libsox_destroy(void *instance) {
   sox_quit();
 }
@@ -256,6 +260,7 @@ void Init_libsox(void) {
   rb_define_singleton_method(LibSoX, "new", libsox_new, 0);
   rb_define_method(LibSoX, "open_read", libsox_open_read, -1);
   rb_define_method(LibSoX, "open_write", libsox_open_write, -1);
+  rb_define_method(LibSoX, "format_init",  libsox_format_init,  0);
 
   LibSoXFormat = rb_define_class("LibSoXFormat", rb_cObject);
   rb_define_method(LibSoXFormat, "signal", libsox_format_signal, 0);
@@ -287,7 +292,6 @@ void Init_libsox(void) {
   rb_define_method(LibSoXBuffer, "initialize", libsox_buffer_initialize, -1);
   rb_define_method(LibSoXBuffer, "length", libsox_buffer_length, 0);
   /*
-  rb_define_method(LibSoX, "format_init",  libsox_format_init,  0);
   rb_define_method(LibSoX, "format_quit",  libsox_format_quit,  0);
   rb_define_method(LibSoX, "chain",        libsox_effectschain, 2);
   rb_define_method(LibSoX, "buffer_size",  libsox_get_bufsize,  0);
@@ -314,10 +318,6 @@ VALUE rsox_get_bufsize(VALUE self) {
   return INT2FIX(sox_globals.bufsiz);
 }
 
-VALUE rsox_format_init(VALUE self) {
-  int i = sox_format_init();
-  return INT2NUM(i);
-}
 
 VALUE rsox_format_quit(VALUE self) {
   sox_format_quit();
