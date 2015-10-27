@@ -1,19 +1,25 @@
-require 'libsox'
+require 'ruby_libsox'
 
 context 'example 0' do
   # with an input file
   # increase the volume and flang it with effects
-  it 'chain style' do
-    result = LibSoXEffectsChain.new.
-      open_read('./spec/fixtures/good_bad_ugly.wav').
-      add_effect('vol', '3dB').
-      add_effect('flanger').
-      open_write('./tmp/output.wav').
-      flow_effects
+  it 'can open, change and save a file' do
+    sox = LibSoX.new
+    input = LibSoX.open_read('./spec/fixtures/good_bad_ugly.wav')
+    output = LibSoX.open_write('./tmp/output.wav', input.signal)
+    result = LibSoX.new_chain(input, output).
+      add_effect('input').
+      add_effect('raw').
+      add_effect('rate', '5512').
+      #add_effect('vol', '3dB').
+      add_effect('output').
+      flow
+#    puts "got flow"
     expect(result).to eq true
   end
 end
 
+=begin
 context 'example 1' do
   # like example 0 
   # but with input_drain and output_flow funtions
@@ -58,3 +64,4 @@ context 'example 6' do
   # convert 2-channel 32-bit wav file
   # into a 1-channel 8-bit uLaw file
 end
+=end

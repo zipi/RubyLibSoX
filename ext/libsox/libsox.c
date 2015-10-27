@@ -6,12 +6,51 @@ static VALUE LibSoXFormat;
 static VALUE LibSoXEffectsChain;
 static VALUE LibSoXSignal;
 static VALUE LibSoXEncoding;
+static VALUE LibSoXEffect;
 static VALUE LibSoXBuffer;
 
 static VALUE library_instance;
 
+// LibSoXEffect
+VALUE libsox_effect_new(VALUE class, VALUE name) {
+  sox_effect_handler_t const *c_effect_handler;
+  sox_effect_t *c_effect;
+  VALUE effect;
+
+  c_effect_handler = sox_find_effect(StringValuePtr(name));
+
+  if(c_effect_handler == NULL) {
+    return (VALUE) NULL;
+  }
+  c_effect = sox_create_effect(c_effect_handler);
+  effect = Data_Wrap_Struct(LibSoXEffect, 0, free, c_effect);
+  rb_obj_call_init(effect, 0, 0);
+  return effect;
+}
+
+VALUE libsox_effect_options(VALUE effect, VALUE *args) {
+  VALUE tmp;
+  sox_effect_t *c_effect;
+  sox_format_t *c_format;
+  char *c_options[12];
+  int i;
+
+  for (i = 0; i < RARRAY_LEN(args); i++) {
+    tmp = RARRAY_PTR(args)[i];
+    if(RB_TYPE_P(tmp, T_STRING)) {
+      c_options[i] = StringValuePtr(tmp);
+    }else{
+       Data_Get_Struct(tmp, sox_format_t, c_format);
+      c_options[i] = (char *)c_format;
+    }
+  }
+  Data_Get_Struct(effect, sox_effect_t, c_effect);
+  return INT2NUM(sox_effect_options(c_effect, i, c_options));
+}
+
 // LibSoXEffectsChain
 static void libsox_effects_chain_free(void *ptr) {
+  printf("free effect");
   sox_delete_effects_chain(ptr);
 }
 
@@ -24,12 +63,26 @@ VALUE libsox_effects_chain_new(VALUE class, VALUE input, VALUE output) {
   Data_Get_Struct(output, sox_format_t, c_output);
   c_chain = sox_create_effects_chain(&c_input->encoding, &c_output->encoding);
   chain = Data_Wrap_Struct(LibSoXEffectsChain, 0, libsox_effects_chain_free, c_chain);
-  /*
-  rb_iv_set(chain, "@input",  input);
-  rb_iv_set(chain, "@output", output);
-  rb_iv_set(self, "@chain", chain);
-  */
+  rb_obj_call_init(chain, 0, 0);
   return chain;
+}
+
+VALUE libsox_effects_chain_add_effect(VALUE chain, VALUE effect, VALUE signal) {
+  sox_effects_chain_t *c_chain;
+  sox_effect_t *c_effect;
+  sox_signalinfo_t *c_signal;
+
+  Data_Get_Struct(chain, sox_effects_chain_t, c_chain);
+  Data_Get_Struct(effect, sox_effect_t, c_effect);
+  Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
+  return INT2NUM(sox_add_effect(c_chain, c_effect, c_signal, c_signal));
+}
+
+VALUE libsox_effects_chain_flow_effects(VALUE chain) {
+  sox_effects_chain_t *c_chain;
+
+  Data_Get_Struct(chain, sox_effects_chain_t, c_chain);
+  return INT2NUM(sox_flow_effects(c_chain, NULL, NULL));
 }
 
 // LibSoXSignal
@@ -128,7 +181,6 @@ VALUE libsox_encoding_compression(VALUE encoding) {
   return DBL2NUM(c_enc->compression);
 }
 
-
 // LibSoXBuffer
 VALUE libsox_buffer_initialize(int argc, VALUE *argv, VALUE buffer) {
   sox_sample_t *mem_buffer;
@@ -151,6 +203,17 @@ VALUE libsox_buffer_length(VALUE buffer) {
 // LibSoXFormat
 static void libsox_format_close(void *ptr) {
   sox_close(ptr);
+}
+
+VALUE libsox_format_init(VALUE class) {
+  int i = sox_format_init();
+  return INT2NUM(i);
+}
+
+VALUE libsox_format_quit(VALUE class) {
+  printf("quit format");
+  sox_format_quit();
+  return Qnil;
 }
 
 VALUE libsox_format_signal(VALUE format) {
@@ -194,18 +257,13 @@ VALUE libsox_format_seek(VALUE format, VALUE offset, VALUE whence){
 }
 
 // LibSoX
-VALUE libsox_format_init(VALUE self) {
-  int i = sox_format_init();
-  return INT2NUM(i);
-}
-
-VALUE libsox_open_read(int argc, VALUE *argv, VALUE libsox) {
+VALUE libsox_open_read(int argc, VALUE *argv, VALUE class) {
   VALUE path, signal, encoding, filetype;
   sox_signalinfo_t   *c_signal   = NULL;
   sox_encodinginfo_t *c_encoding = NULL;
   sox_format_t       *c_format;
 
-  sox_format_init();
+  // libsox_new(LibSoX);
   rb_scan_args(argc, argv, "13", &path, &signal, &encoding, &filetype);
   if (!NIL_P(signal)) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
   if (!NIL_P(encoding)) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
@@ -217,14 +275,14 @@ sox_bool libsox_overwrite_callback(const char *filename) {
   return sox_false;
 }
 
-VALUE libsox_open_write(int argc, VALUE *argv, VALUE self) {
+VALUE libsox_open_write(int argc, VALUE *argv, VALUE class) {
   VALUE path, signal, encoding, filetype, oob;
   sox_signalinfo_t *c_signal = NULL;
   sox_encodinginfo_t *c_encoding = NULL;
   sox_oob_t *c_oob = NULL;
   sox_format_t *c_format;
 
-  sox_format_init();
+  // libsox_new(LibSoX);
   rb_scan_args(argc, argv, "14", &path, &signal, &encoding, &filetype, &oob);
   if (signal != Qnil) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
   if (encoding != Qnil) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
@@ -239,6 +297,8 @@ VALUE libsox_open_write(int argc, VALUE *argv, VALUE self) {
 }
 
 static void libsox_destroy(void *instance) {
+  printf("quit all");
+  sox_format_quit();
   sox_quit();
 }
 
@@ -248,6 +308,7 @@ VALUE libsox_new(VALUE class) {
     library_instance = Data_Wrap_Struct(LibSoX, NULL, libsox_destroy, 0);
     rb_obj_call_init(library_instance, 0, 0);
     sox_init();
+    sox_format_init();
   }
   return library_instance;
 }
@@ -258,11 +319,12 @@ void Init_libsox(void) {
 
   LibSoX = rb_define_class("LibSoX", rb_cObject);
   rb_define_singleton_method(LibSoX, "new", libsox_new, 0);
-  rb_define_method(LibSoX, "open_read", libsox_open_read, -1);
-  rb_define_method(LibSoX, "open_write", libsox_open_write, -1);
-  rb_define_method(LibSoX, "format_init",  libsox_format_init,  0);
+  rb_define_singleton_method(LibSoX, "open_read", libsox_open_read, -1);
+  rb_define_singleton_method(LibSoX, "open_write", libsox_open_write, -1);
 
   LibSoXFormat = rb_define_class("LibSoXFormat", rb_cObject);
+  rb_define_singleton_method(LibSoX, "init", libsox_format_init, 0);
+  rb_define_singleton_method(LibSoX, "quit", libsox_format_quit, 0);
   rb_define_method(LibSoXFormat, "signal", libsox_format_signal, 0);
   rb_define_method(LibSoXFormat, "encoding", libsox_format_encoding, 0);
   rb_define_method(LibSoXFormat, "read", libsox_format_read, 1);
@@ -271,6 +333,8 @@ void Init_libsox(void) {
 
   LibSoXEffectsChain  = rb_define_class("LibSoXEffectsChain", rb_cObject);
   rb_define_singleton_method(LibSoXEffectsChain, "new", libsox_effects_chain_new, 2);
+  rb_define_method(LibSoXEffectsChain, "add_effect", libsox_effects_chain_add_effect, 2);
+  rb_define_method(LibSoXEffectsChain, "flow", libsox_effects_chain_flow_effects, 0);
 
   LibSoXSignal = rb_define_class("LibSoXSignal", rb_cObject);
   rb_define_alloc_func(LibSoXSignal, libsox_signal_alloc);
@@ -291,8 +355,12 @@ void Init_libsox(void) {
   LibSoXBuffer = rb_define_class("LibSoXBuffer", rb_cObject);
   rb_define_method(LibSoXBuffer, "initialize", libsox_buffer_initialize, -1);
   rb_define_method(LibSoXBuffer, "length", libsox_buffer_length, 0);
+
+  LibSoXEffect = rb_define_class("LibSoXEffect", rb_cObject);
+  rb_define_singleton_method(LibSoXEffect, "new", libsox_effect_new, 1);
+  rb_define_method(LibSoXEffect, "options", libsox_effect_options, -2);
+
   /*
-  rb_define_method(LibSoX, "format_quit",  libsox_format_quit,  0);
   rb_define_method(LibSoX, "chain",        libsox_effectschain, 2);
   rb_define_method(LibSoX, "buffer_size",  libsox_get_bufsize,  0);
   rb_define_method(LibSoX, "buffer_size=", libsox_set_bufsize,  1);
@@ -318,11 +386,6 @@ VALUE rsox_get_bufsize(VALUE self) {
   return INT2FIX(sox_globals.bufsiz);
 }
 
-
-VALUE rsox_format_quit(VALUE self) {
-  sox_format_quit();
-  return Qnil;
-}
 
 
 

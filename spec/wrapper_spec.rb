@@ -12,16 +12,15 @@ describe 'LibSoX' do
     end
 
     it 'exposes the open_read and _write  methods' do
-      lsmethods = @ls.methods
+      lsmethods = LibSoX.methods
       expect(lsmethods.include?(:open_read)).to be true
       expect(lsmethods.include?(:open_write)).to be true
-      # TODO: add read and write if we have a use case
     end
   end
 
   describe 'handling input and output' do
     it 'can open an input file and understand it' do
-      input = @ls.open_read('spec/fixtures/good_bad_ugly.wav')
+      input = LibSoX.open_read('spec/fixtures/good_bad_ugly.wav')
       expect(input).to_not be_nil
       expect(input).to_not eq 0
       expect(input).to be_a LibSoXFormat
@@ -30,12 +29,11 @@ describe 'LibSoX' do
       expect(input.signal.precision).to eq 8
       expect(input.signal.channels).to eq 1
       expect(input.signal.length).to eq 94976
-      puts input.encoding.inspect
     end
 
     it 'can open a file for output' do
-      input = @ls.open_read('./spec/fixtures/good_bad_ugly.wav')
-      output = @ls.open_write('./tmp/output.wav', input.signal)
+      input = LibSoX.open_read('./spec/fixtures/good_bad_ugly.wav')
+      output = LibSoX.open_write('./tmp/output.wav', input.signal)
       expect(output).to_not be_nil
       expect(output).to_not eq 0
       expect(output).to be_a LibSoXFormat
