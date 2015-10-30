@@ -8,8 +8,33 @@ static VALUE LibSoXSignal;
 static VALUE LibSoXEncoding;
 static VALUE LibSoXEffect;
 static VALUE LibSoXBuffer;
+// static VALUE LibSoXEffectHandler;
 
 static VALUE library_instance;
+
+// LibSoXEffectHandler
+//
+//
+/*
+static sox_effect_handler_t const * empty_handler(void)
+
+  static sox_effect_handler_t *handler = lsx_malloc(sizeof(sox_effect_handler_t));
+  // name usage flags getopts start flow drain stop kill priv_size
+  return &handler;
+}
+
+VALUE libsox_effect_handler_new(VALUE class) {
+  sox_effect_handler_t const *c_effect_handler = empty_handler();
+  value 
+  c_effect_handler->name = 
+  c_effect_handler->flags = 
+  c_effect_handler->flow = 
+
+
+
+  effect = Data_Wrap_Struct(LibSoXEffect, 0, free, c_effect);
+}
+*/
 
 // LibSoXEffect
 VALUE libsox_effect_new(VALUE class, VALUE name) {
@@ -40,7 +65,7 @@ VALUE libsox_effect_options(VALUE effect, VALUE *args) {
     if(RB_TYPE_P(tmp, T_STRING)) {
       c_options[i] = StringValuePtr(tmp);
     }else{
-       Data_Get_Struct(tmp, sox_format_t, c_format);
+      Data_Get_Struct(tmp, sox_format_t, c_format);
       c_options[i] = (char *)c_format;
     }
   }
@@ -174,11 +199,33 @@ VALUE libsox_encoding_bps_set(VALUE encoding, VALUE bps) {
   return bps;
 }
 
+VALUE libsox_encoding_encoding(VALUE encoding) {
+  sox_encodinginfo_t *c_enc;
+
+  Data_Get_Struct(encoding, sox_encodinginfo_t, c_enc);
+  return UINT2NUM(c_enc->encoding);
+}
+
+VALUE libsox_encoding_encoding_set(VALUE encoding, VALUE codeing) {
+  sox_encodinginfo_t *c_enc;
+  unsigned int val = NUM2UINT(codeing);
+
+  Data_Get_Struct(encoding, sox_encodinginfo_t, c_enc);
+  c_enc->encoding = val;
+  return encoding;
+}
+
 VALUE libsox_encoding_compression(VALUE encoding) {
   sox_encodinginfo_t *c_enc;
 
   Data_Get_Struct(encoding, sox_encodinginfo_t, c_enc);
   return DBL2NUM(c_enc->compression);
+}
+VALUE libsox_encoding_alloc(VALUE klass) {
+  sox_encodinginfo_t *c_encoding = ALLOC(sox_encodinginfo_t);
+
+  memset(c_encoding, 0, sizeof(sox_encodinginfo_t));
+  return Data_Wrap_Struct(klass, 0, free, c_encoding);
 }
 
 // LibSoXBuffer
@@ -317,10 +364,49 @@ void Init_libsox(void) {
   rb_define_global_const("SOX_SUCCESS", INT2NUM(0));
   rb_define_global_const("SOX_EOF", INT2NUM(-1));
 
+  int encode = 0;
+  rb_define_global_const("SOX_ENCODING_UNKNOWN", INT2NUM(encode++));   /**< encoding has not yet been determined */
+
+  rb_define_global_const("SOX_ENCODING_SIGN2", INT2NUM(encode++));      /**< signed linear 2's comp: Mac */
+  rb_define_global_const("SOX_ENCODING_UNSIGNED", INT2NUM(encode++));   /**< unsigned linear: Sound Blaster */
+  rb_define_global_const("SOX_ENCODING_FLOAT", INT2NUM(encode++));      /**< floating point (binary format) */
+  rb_define_global_const("SOX_ENCODING_FLOAT_TEXT", INT2NUM(encode++)); /**< floating point (text format) */
+  rb_define_global_const("SOX_ENCODING_FLAC", INT2NUM(encode++));       /**< FLAC compression */
+  rb_define_global_const("SOX_ENCODING_HCOM", INT2NUM(encode++));       /**< Mac FSSD files with Huffman compression */
+  rb_define_global_const("SOX_ENCODING_WAVPACK", INT2NUM(encode++));    /**< WavPack with integer samples */
+  rb_define_global_const("SOX_ENCODING_WAVPACKF", INT2NUM(encode++));   /**< WavPack with float samples */
+  rb_define_global_const("SOX_ENCODING_ULAW", INT2NUM(encode++));       /**< u-law signed logs: US telephony, SPARC */
+  rb_define_global_const("SOX_ENCODING_ALAW", INT2NUM(encode++));       /**< A-law signed logs: non-US telephony, Psion */
+  rb_define_global_const("SOX_ENCODING_G721", INT2NUM(encode++));       /**< G.721 4-bit ADPCM */
+  rb_define_global_const("SOX_ENCODING_G723", INT2NUM(encode++));       /**< G.723 3 or 5 bit ADPCM */
+  rb_define_global_const("SOX_ENCODING_CL_ADPCM", INT2NUM(encode++));   /**< Creative Labs 8 --> 2,3,4 bit Compressed PCM */
+  rb_define_global_const("SOX_ENCODING_CL_ADPCM16", INT2NUM(encode++)); /**< Creative Labs 16 --> 4 bit Compressed PCM */
+  rb_define_global_const("SOX_ENCODING_MS_ADPCM", INT2NUM(encode++));   /**< Microsoft Compressed PCM */
+  rb_define_global_const("SOX_ENCODING_IMA_ADPCM", INT2NUM(encode++));  /**< IMA Compressed PCM */
+  rb_define_global_const("SOX_ENCODING_OKI_ADPCM", INT2NUM(encode++));  /**< Dialogic/OKI Compressed PCM */
+  rb_define_global_const("SOX_ENCODING_DPCM", INT2NUM(encode++));       /**< Differential PCM: Fasttracker 2 (xi) */
+  rb_define_global_const("SOX_ENCODING_DWVW", INT2NUM(encode++));       /**< Delta Width Variable Word */
+  rb_define_global_const("SOX_ENCODING_DWVWN", INT2NUM(encode++));      /**< Delta Width Variable Word N-bit */
+  rb_define_global_const("SOX_ENCODING_GSM", INT2NUM(encode++));        /**< GSM 6.10 33byte frame lossy compression */
+  rb_define_global_const("SOX_ENCODING_MP3", INT2NUM(encode++));        /**< MP3 compression */
+  rb_define_global_const("SOX_ENCODING_VORBIS", INT2NUM(encode++));     /**< Vorbis compression */
+  rb_define_global_const("SOX_ENCODING_AMR_WB", INT2NUM(encode++));     /**< AMR-WB compression */
+  rb_define_global_const("SOX_ENCODING_AMR_NB", INT2NUM(encode++));     /**< AMR-NB compression */
+  rb_define_global_const("SOX_ENCODING_CVSD", INT2NUM(encode++));       /**< Continuously Variable Slope Delta modulation */
+  rb_define_global_const("SOX_ENCODING_LPC10", INT2NUM(encode++));      /**< Linear Predictive Coding */
+  rb_define_global_const("SOX_ENCODING_OPUS", INT2NUM(encode++));       /**< Opus compression */
+  rb_define_global_const("SOX_ENCODINGS", INT2NUM(encode++));           /**< End of list marker */
+ 
+
   LibSoX = rb_define_class("LibSoX", rb_cObject);
   rb_define_singleton_method(LibSoX, "new", libsox_new, 0);
   rb_define_singleton_method(LibSoX, "open_read", libsox_open_read, -1);
   rb_define_singleton_method(LibSoX, "open_write", libsox_open_write, -1);
+
+  /*
+  LibSoXEffectHandler = rb_define_class("LibSoXEffectHandler", rb_cObject);
+  rb_define_singleton_method(LibSoX, "new", libsox_effects_handler_new, 0);
+  */
 
   LibSoXFormat = rb_define_class("LibSoXFormat", rb_cObject);
   rb_define_singleton_method(LibSoX, "init", libsox_format_init, 0);
@@ -348,6 +434,9 @@ void Init_libsox(void) {
   rb_define_method(LibSoXSignal, "rate=", libsox_signal_rate_set,1);
 
   LibSoXEncoding = rb_define_class("LibSoXEncoding", rb_cObject);
+  rb_define_alloc_func(LibSoXEncoding, libsox_signal_alloc);
+  rb_define_method(LibSoXEncoding, "encoding", libsox_encoding_encoding, 0);
+  rb_define_method(LibSoXEncoding, "encoding=", libsox_encoding_encoding_set, 1);
   rb_define_method(LibSoXEncoding, "bps", libsox_encoding_bps, 0);
   rb_define_method(LibSoXEncoding, "bps=", libsox_encoding_bps, 1);
   rb_define_method(LibSoXEncoding, "compression", libsox_encoding_compression, 0);

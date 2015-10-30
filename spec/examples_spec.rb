@@ -16,12 +16,49 @@ context 'example 0' do
   end
 end
 
+context 'example 6' do
+  # convert 2-channel 32-bit wav file
+  # into a 1-channel 8-bit uLaw file
+  it 'can convert files' do
+    out_encoding = LibSoX.new_encoding_info(encoding: SOX_ENCODING_ULAW, bps: 8)
+    out_signal = LibSoX.new_signal_info(rate: 8000, channels: 1)
+    input = LibSoX.open_read('./spec/fixtures/make_my_day.wav')
+    output = LibSoX.open_write('./tmp/day.wav', out_signal, out_encoding)
+    chain = LibSoX.new_chain(input, output)
+    chain.add_effect('input')
+    input.signal.rate != output.signal.rate && chain.add_effect('rate')
+    input.signal.channels != output.signal.channels && chain.add_effect('channels')
+    chain.add_effect('output')
+    expect(chain.flow).to eq 0
+  end
+end
+
 =begin
 context 'example 1' do
   # like example 0 
-  # but with input_drain and output_flow funtions
+  # but with input_drain and output handlers
   # that happen to read and write from files
   # but could do something else
+  it 'can use input and output handlers' do
+    input = LibSoX.open_read('./spec/fixtures/good_bad_ugly.wav')
+    output = LibSoX.open_write('./tmp/output.wav', input.signal)
+
+    input_drain = ->(_effect, sample, size) do
+      # insure sample size is multiple of number of channels
+      size -= size % effect.out_signal.channels
+      count = input.sox_read(sample, size)
+      STDERR.puts("#{input.filename}: #{input.sox_error}") unless(count > 0 || input.sox_error > 0)
+      count > 0 ? SOX_SUCCESS : SOX_ERROR
+    end
+
+    input_handler = LibSoXEffectHandler.new()
+    chain = LibSoX.new_chain(input, output)
+    chain.create_effect(input_handler)
+    chain.add_effect('vol', '-3dB')
+    chain.add_effect('flanger')
+    chain.add_effect('output')
+    expect(chain.flow).to eq 0
+  end
 end
 
 context 'example 2' do
@@ -48,8 +85,6 @@ context 'example 4' do
   # using sox_read and sox_write
 end
 
-end
-
 context 'example 5' do
   # read file into buffer first
   # process file and save to memory buffer
@@ -57,8 +92,4 @@ context 'example 5' do
   # just to show sox_mem_read and sox_mem_write in action
 end
 
-context 'example 6' do
-  # convert 2-channel 32-bit wav file
-  # into a 1-channel 8-bit uLaw file
-end
 =end
