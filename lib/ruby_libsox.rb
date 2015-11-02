@@ -82,6 +82,19 @@ class EffectHandler
   end
 end
 
+class Buffer
+  attr_accessor :raw_data
+
+  def initialize(size)
+    values = Array.new(size, 0)
+    @raw_data = values.pack('L!*')
+  end
+
+  def contents
+    @raw_data.unpack('L!*')
+  end
+end
+
 module Extension
   def new_chain(input, output)
     Chain.new(input, output)
@@ -97,6 +110,11 @@ module Extension
     encoding = LibSoXEncoding.new
     params.each { |k,v| encoding.send(k.to_s+'=', v) }
     encoding
+  end
+
+  def new_buffer(params)
+    size = params[:size] || 1024
+    Buffer.new(params[:size])
   end
 end
 

@@ -7,7 +7,6 @@ static VALUE LibSoXEffectsChain;
 static VALUE LibSoXSignal;
 static VALUE LibSoXEncoding;
 static VALUE LibSoXEffect;
-static VALUE LibSoXBuffer;
 // static VALUE LibSoXEffectHandler;
 
 static VALUE library_instance;
@@ -228,25 +227,6 @@ VALUE libsox_encoding_alloc(VALUE klass) {
   return Data_Wrap_Struct(klass, 0, free, c_encoding);
 }
 
-// LibSoXBuffer
-VALUE libsox_buffer_initialize(int argc, VALUE *argv, VALUE buffer) {
-  sox_sample_t *mem_buffer;
-  VALUE length;
-  int llen;
-
-  rb_scan_args(argc, argv, "01", &length);
-  llen = NIL_P(length) ? 2048 : NUM2INT(length);
-  mem_buffer = ALLOC_N(sox_sample_t, llen);
-
-  rb_iv_set(buffer, "@buffer", Data_Wrap_Struct(LibSoXBuffer, 0, free, mem_buffer));
-  rb_iv_set(buffer, "@length", INT2NUM(llen));
-  return buffer;
-}
-
-VALUE libsox_buffer_length(VALUE buffer) {
-  return rb_iv_get(buffer, "@length");
-}
-
 // LibSoXFormat
 static void libsox_format_close(void *ptr) {
   sox_close(ptr);
@@ -277,22 +257,24 @@ VALUE libsox_format_encoding(VALUE format) {
   return Data_Wrap_Struct(LibSoXEncoding, 0, 0, &c_format->encoding);
 }
 
-VALUE libsox_format_read(VALUE format, VALUE buffer) {
+VALUE libsox_format_read(VALUE format, VALUE buffer, VALUE length) {
   sox_format_t *c_format;
   sox_sample_t *c_buffer;
+  int c_length;
 
   Data_Get_Struct(format, sox_format_t, c_format);
-  Data_Get_Struct(rb_iv_get(buffer, "@buffer"), sox_sample_t, c_buffer);
-  return INT2NUM(sox_read(c_format, c_buffer, NUM2INT(rb_iv_get(buffer, "@length"))));
+  c_buffer = (sox_sample_t *)StringValuePtr(buffer);
+  c_length = NUM2INT(length);
+  return INT2NUM(sox_read(c_format, c_buffer, c_length));
 }
 
 VALUE libsox_format_write(VALUE format, VALUE buffer, VALUE length) {
   sox_format_t *c_format;
   sox_sample_t *c_buffer;
-  int write_len = NUM2INT(length == Qnil ? rb_iv_get(buffer, "@length") : length);
+  int write_len = NUM2INT(length);
 
   Data_Get_Struct(format, sox_format_t, c_format);
-  Data_Get_Struct(rb_iv_get(buffer, "@buffer"), sox_sample_t, c_buffer);
+  c_buffer = (sox_sample_t *)StringValuePtr(buffer);
   return INT2NUM(sox_write(c_format, c_buffer, write_len));
 }
 
@@ -301,6 +283,13 @@ VALUE libsox_format_seek(VALUE format, VALUE offset, VALUE whence){
 
   Data_Get_Struct(format, sox_format_t, c_format);
   return INT2NUM(sox_seek(c_format, NUM2LONG(offset), NUM2INT(whence)));
+}
+
+VALUE libsox_format_format_close(VALUE format) {
+  sox_format_t *c_format;
+
+  Data_Get_Struct(format, sox_format_t, c_format);
+  return INT2NUM(sox_close(c_format));
 }
 
 // LibSoX
@@ -413,9 +402,10 @@ void Init_libsox(void) {
   rb_define_singleton_method(LibSoX, "quit", libsox_format_quit, 0);
   rb_define_method(LibSoXFormat, "signal", libsox_format_signal, 0);
   rb_define_method(LibSoXFormat, "encoding", libsox_format_encoding, 0);
-  rb_define_method(LibSoXFormat, "read", libsox_format_read, 1);
+  rb_define_method(LibSoXFormat, "read", libsox_format_read, 2);
   rb_define_method(LibSoXFormat, "write", libsox_format_write, 2);
   rb_define_method(LibSoXFormat, "seek", libsox_format_seek, 2);
+  rb_define_method(LibSoXFormat, "close", libsox_format_format_close, 0);
 
   LibSoXEffectsChain  = rb_define_class("LibSoXEffectsChain", rb_cObject);
   rb_define_singleton_method(LibSoXEffectsChain, "new", libsox_effects_chain_new, 2);
@@ -440,10 +430,6 @@ void Init_libsox(void) {
   rb_define_method(LibSoXEncoding, "bps", libsox_encoding_bps, 0);
   rb_define_method(LibSoXEncoding, "bps=", libsox_encoding_bps, 1);
   rb_define_method(LibSoXEncoding, "compression", libsox_encoding_compression, 0);
-
-  LibSoXBuffer = rb_define_class("LibSoXBuffer", rb_cObject);
-  rb_define_method(LibSoXBuffer, "initialize", libsox_buffer_initialize, -1);
-  rb_define_method(LibSoXBuffer, "length", libsox_buffer_length, 0);
 
   LibSoXEffect = rb_define_class("LibSoXEffect", rb_cObject);
   rb_define_singleton_method(LibSoXEffect, "new", libsox_effect_new, 1);
