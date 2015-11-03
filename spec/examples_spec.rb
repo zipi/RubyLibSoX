@@ -1,4 +1,4 @@
-require 'ruby_libsox'
+require 'libsox'
 
 context 'example 0' do
   # with an input file
@@ -39,11 +39,10 @@ context 'example 4' do
   # ensure all files have the same signal characteristics
   # using sox_read and sox_write
   it 'can feed multiple files into the processing' do
-    files = %w(./spec/fixtures/good_bad_ugly.wav ./spec/fixtures/make_my_day.wav)
     buffer_size = 2048
-    signal = nil
-    output = nil
-    samples = LibSoX.new_buffer size: buffer_size
+    samples = LibSoX.new_buffer buffer_size
+    signal = output = nil
+    files = %w(./spec/fixtures/good_bad_ugly.wav ./spec/fixtures/make_my_day.wav)
     files.each_with_index do |f, i|
       input = LibSoX.open_read(f)
       expect(input).to be_a LibSoXFormat
@@ -63,6 +62,57 @@ context 'example 4' do
   end
 end
 
+
+context 'example 2' do
+  # open file, seek to start position,
+  # read the period of sound in to a bufffer,
+  # and then find the peak volume for each sample sized, sample, in the buffer
+  # print the reduced information as a histogram
+  it 'can look at a buffer of samples' do
+    # look at start for period in seconds
+    start = 30.0
+    period = 1.5
+    block_period = 0.025
+    input = LibSoX.open_read './spec/fixtures/partita.wav'
+    expect(input.signal.channels).to eq 2
+    to_loc = start * input.signal.rate * input.signal.channels + 0.5
+    to_loc -= to_loc % input.signal.channels
+    expect(input.seek(to_loc)).to eq SOX_SUCCESS
+    block_size = block_period * input.signal.rate * input.signal.channels + 0.5
+    block_size -= block_size % input.signal.channels
+    buffer = LibSoX.new_buffer block_size
+    graph = ''
+    line = '=' * 35
+
+    blocks = (period / block_period).ceil
+    puts blocks
+
+    blocks.times do |block|
+      puts "b #{block}"
+      count = input.read(buffer.raw_data, block_size)
+      puts "count #{count}"
+      contents = buffer.contents
+      right = left = 0x7FFFFFFF
+      count.times do |i|
+        #puts i
+        test = contents[i]
+        #puts "sample #{test}"
+        i.odd? && test > right && right = test
+        i.even? && test > left && left = test
+      end
+      puts left
+      puts right
+      left = buffer.to_float left
+      right = buffer.to_float right
+      point = start_secs + block * block_period
+      l = (1 - left) * 35 + 0.5
+      r = (1 - right) * 35 + 0.5
+
+      graph << sprintf("%8.3f %d %d", point, l, r)
+    end
+    puts graph
+  end
+end
 
 =begin
 context 'example 1' do
@@ -90,17 +140,6 @@ context 'example 1' do
     chain.add_effect('output')
     expect(chain.flow).to eq 0
   end
-end
-
-context 'example 2' do
-  start = 60
-  period = 5
-  sample = 0.1
-
-  # open file, seek to start position,
-  # read the period of sound in to a bufffer,
-  # and then find the peak volume for each sample sized, sample, in the buffer
-  # print the reduced information as a histogram
 end
 
 context 'example 3' do

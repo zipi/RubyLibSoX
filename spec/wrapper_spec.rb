@@ -1,4 +1,4 @@
-require 'ruby_libsox'
+require 'libsox'
 
 describe 'LibSoX' do
   before :all do

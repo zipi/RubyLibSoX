@@ -3,6 +3,6 @@
 require "rubygems"
 require 'rake/extensiontask'
 
-Rake::ExtensionTask.new('libsox')
+Rake::ExtensionTask.new('ruby_libsox')
 
 # vim: syntax=ruby
