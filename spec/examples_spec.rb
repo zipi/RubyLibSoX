@@ -110,9 +110,8 @@ context 'example 3' do
   # with the rate and channels effects
   it 'plays a file with effects' do
     input = LibSoX.open_read './spec/fixtures/make_my_day.wav'
-    # look for linux an mac audio outputs
-    filetype = 'alsa' if LibSoX.write_handler('alsa')
-    filetype = 'coreaudio' if LibSoX.write_handler('coreaudio')
+    # look for linux and mac audio hardware interface
+    (LibSoX.find_format('alsa') && filetype = 'alsa') || (LibSoX.find_format('coreaudio') && filetype = 'coreaudio')
     output = LibSoX.open_write 'default', input.signal, nil, filetype
 
     chain = LibSoX.new_chain input, output

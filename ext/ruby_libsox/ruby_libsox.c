@@ -325,11 +325,14 @@ VALUE libsox_open_write(int argc, VALUE *argv, VALUE class) {
   return Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
 }
 
-VALUE libsox_write_handler(VALUE class, VALUE filetype) {
-  sox_format_handler_t const * write_handler;
+VALUE libsox_find_format(VALUE class, VALUE filetype) {
+  sox_format_handler_t const * find_format;
 
-  write_handler = sox_write_handler(NULL, StringValuePtr(filetype), NULL);
-  return Data_Wrap_Struct(LibSoXFormatHandler, 0, 0, (void *)write_handler);
+  find_format = sox_find_format(StringValuePtr(filetype), sox_false);
+  if(find_format)
+    return Data_Wrap_Struct(LibSoXFormatHandler, 0, 0, (void *) find_format);
+  else
+    return Qnil;
 }
 
 static void libsox_destroy(void *instance) {
@@ -390,7 +393,7 @@ void Init_ruby_libsox(void) {
   rb_define_singleton_method(LibSoX, "new", libsox_new, 0);
   rb_define_singleton_method(LibSoX, "open_read", libsox_open_read, -1);
   rb_define_singleton_method(LibSoX, "open_write", libsox_open_write, -1);
-  rb_define_singleton_method(LibSoX, "write_handler", libsox_write_handler, 1);
+  rb_define_singleton_method(LibSoX, "find_format", libsox_find_format, 1);
 
   /*
   LibSoXEffectHandler = rb_define_class("LibSoXEffectHandler", rb_cObject);
