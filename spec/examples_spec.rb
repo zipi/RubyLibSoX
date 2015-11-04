@@ -1,8 +1,12 @@
 require 'libsox'
 
+# These examples are translated from the C-lang examples provided with the
+# LibSoX source code.  They are not inteded to be the best ruby-way of working
+# with the gem but did help me to TDD my way through development.
+#
 context 'example 0' do
-  # with an input file
-  # decrease the volume and flang it with effects
+  # with an input file apply effects to
+  # decrease the volume and flang it
   it 'can open, change and save a file' do
     input = LibSoX.open_read('./spec/fixtures/good_bad_ugly.wav')
     output = LibSoX.open_write('./tmp/output.wav', input.signal)
@@ -22,8 +26,8 @@ context 'example 6' do
   it 'can convert files' do
     out_encoding = LibSoX.new_encoding_info encoding: SOX_ENCODING_ULAW, bps: 8
     out_signal = LibSoX.new_signal_info rate: 8000, channels: 1
-    input = LibSoX.open_read './spec/fixtures/make_my_day.wav'
-    output = LibSoX.open_write './tmp/day.wav', out_signal, out_encoding
+    input = LibSoX.open_read './spec/fixtures/partita.wav'
+    output = LibSoX.open_write './tmp/ulaw.wav', out_signal, out_encoding
     chain = LibSoX.new_chain input, output
     chain.add_effect 'input'
     input.signal.rate != output.signal.rate && chain.add_effect('rate')
@@ -50,7 +54,6 @@ context 'example 4' do
         output = LibSoX.open_write('./tmp/concat.wav', input.signal, input.encoding)
         signal = input.signal
       else
-        puts "channels first #{signal.channels} next #{input.signal.channels}"
         raise "change in channels" if input.signal.channels != signal.channels
         raise "change in rate" if input.signal.rate != signal.rate
       end
@@ -64,10 +67,10 @@ end
 context 'example 2' do
   # open file, seek to start position,
   # read the period of sound in to a bufffer,
-  # and then find the peak volume for each sample sized, sample, in the buffer
+  # and then find the peak volume for each period sized, sample, in the buffer
   # print the reduced information as a histogram
   it 'can look at a buffer of samples' do
-    # look at start for period in seconds
+    # parameters in seconds
     start = 13.0
     period = 1.5
     block_period = 0.025
@@ -81,9 +84,7 @@ context 'example 2' do
     buffer = LibSoX.new_buffer block_size
     graph = ''
     line = '=' * 35
-
     blocks = (period / block_period).ceil
-
     blocks.times do |block|
       count = input.read(buffer.raw_data, block_size)
       contents = buffer.contents
@@ -96,11 +97,35 @@ context 'example 2' do
       point = start + block * block_period
       l = (1- lmax) * 35 + 0.5
       r = (1- rmax) * 35 + 0.5
-      graph << sprintf("%8.3f %d %d\n", point, l.round(3), r.round(3))
+      graph << sprintf("%8.3f %36s|%s\n", point, line[0,l], line[0,r])
     end
-    puts graph
+    # puts graph
+    expect(graph.lines.count).to eq 60
   end
 end
+
+context 'example 3' do
+  # on a system with a natural output channel like alsa
+  # play a file handling changes to rate and channel count
+  # with the rate and channels effects
+  it 'plays a file with effects' do
+    input = LibSoX.open_read './spec/fixtures/make_my_day.wav'
+    # look for linux an mac audio outputs
+    filetype = 'alsa' if LibSoX.write_handler('alsa')
+    filetype = 'coreaudio' if LibSoX.write_handler('coreaudio')
+    output = LibSoX.open_write 'default', input.signal, nil, filetype
+
+    chain = LibSoX.new_chain input, output
+    chain.add_effect 'input'
+    chain.add_effect 'trim', '1'
+    factor = input.signal.rate / output.signal.rate
+    input.signal.rate != output.signal.rate && chain.add_effect('rate')
+    input.signal.channels != output.signal.channels && chain.add_effect('channels')
+    chain.add_effect 'output'
+    expect(chain.flow).to eq SOX_SUCCESS
+  end
+end
+
 
 =begin
 context 'example 1' do
@@ -128,12 +153,6 @@ context 'example 1' do
     chain.add_effect('output')
     expect(chain.flow).to eq 0
   end
-end
-
-context 'example 3' do
-  # on a system with a natural output channel like alsa
-  # play a file handling changes to rate and channel count
-  # with the rate and channels effects
 end
 
 context 'example 5' do

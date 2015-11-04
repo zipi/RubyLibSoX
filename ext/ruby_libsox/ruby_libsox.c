@@ -7,6 +7,7 @@ static VALUE LibSoXEffectsChain;
 static VALUE LibSoXSignal;
 static VALUE LibSoXEncoding;
 static VALUE LibSoXEffect;
+static VALUE LibSoXFormatHandler;
 // static VALUE LibSoXEffectHandler;
 
 static VALUE library_instance;
@@ -324,6 +325,13 @@ VALUE libsox_open_write(int argc, VALUE *argv, VALUE class) {
   return Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
 }
 
+VALUE libsox_write_handler(VALUE class, VALUE filetype) {
+  sox_format_handler_t const * write_handler;
+
+  write_handler = sox_write_handler(NULL, StringValuePtr(filetype), NULL);
+  return Data_Wrap_Struct(LibSoXFormatHandler, 0, 0, (void *)write_handler);
+}
+
 static void libsox_destroy(void *instance) {
   printf("quit all");
   sox_format_quit();
@@ -382,6 +390,7 @@ void Init_ruby_libsox(void) {
   rb_define_singleton_method(LibSoX, "new", libsox_new, 0);
   rb_define_singleton_method(LibSoX, "open_read", libsox_open_read, -1);
   rb_define_singleton_method(LibSoX, "open_write", libsox_open_write, -1);
+  rb_define_singleton_method(LibSoX, "write_handler", libsox_write_handler, 1);
 
   /*
   LibSoXEffectHandler = rb_define_class("LibSoXEffectHandler", rb_cObject);
@@ -425,6 +434,7 @@ void Init_ruby_libsox(void) {
   rb_define_singleton_method(LibSoXEffect, "new", libsox_effect_new, 1);
   rb_define_method(LibSoXEffect, "options", libsox_effect_options, -2);
 
+  LibSoXFormatHandler = rb_define_class("LibSoXFormatHander", rb_cObject);
   /*
   rb_define_method(LibSoX, "chain",        libsox_effectschain, 2);
   rb_define_method(LibSoX, "buffer_size",  libsox_get_bufsize,  0);
