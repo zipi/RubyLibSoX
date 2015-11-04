@@ -74,7 +74,6 @@ VALUE libsox_effect_options(VALUE effect, VALUE *args) {
 
 // LibSoXEffectsChain
 static void libsox_effects_chain_free(void *ptr) {
-  printf("free effect");
   sox_delete_effects_chain(ptr);
 }
 
@@ -285,13 +284,6 @@ VALUE libsox_format_seek(VALUE format, VALUE offset) {
   return INT2NUM(sox_seek(c_format, NUM2LONG(offset), SOX_SEEK_SET));
 }
 
-VALUE libsox_format_format_close(VALUE format) {
-  sox_format_t *c_format;
-
-  Data_Get_Struct(format, sox_format_t, c_format);
-  return INT2NUM(sox_close(c_format));
-}
-
 // LibSoX
 VALUE libsox_open_read(int argc, VALUE *argv, VALUE class) {
   VALUE path, signal, encoding, filetype;
@@ -404,7 +396,6 @@ void Init_ruby_libsox(void) {
   rb_define_method(LibSoXFormat, "read", libsox_format_read, 2);
   rb_define_method(LibSoXFormat, "write", libsox_format_write, 2);
   rb_define_method(LibSoXFormat, "seek", libsox_format_seek, 1);
-  rb_define_method(LibSoXFormat, "close", libsox_format_format_close, 0);
 
   LibSoXEffectsChain  = rb_define_class("LibSoXEffectsChain", rb_cObject);
   rb_define_singleton_method(LibSoXEffectsChain, "new", libsox_effects_chain_new, 2);

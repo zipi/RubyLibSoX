@@ -57,9 +57,7 @@ context 'example 4' do
       while (number_read = input.read(samples.raw_data, buffer_size)) > 0 do
         output.write(samples.raw_data, number_read)
       end
-      expect(input.close).to eq SOX_SUCCESS
     end
-    expect(output.close).to eq SOX_SUCCESS
   end
 end
 
@@ -100,7 +98,6 @@ context 'example 2' do
       r = (1- rmax) * 35 + 0.5
       graph << sprintf("%8.3f %d %d\n", point, l.round(3), r.round(3))
     end
-    input.close
     puts graph
   end
 end
