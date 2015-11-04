@@ -50,6 +50,7 @@ context 'example 4' do
         output = LibSoX.open_write('./tmp/concat.wav', input.signal, input.encoding)
         signal = input.signal
       else
+        puts "channels first #{signal.channels} next #{input.signal.channels}"
         raise "change in channels" if input.signal.channels != signal.channels
         raise "change in rate" if input.signal.rate != signal.rate
       end
@@ -62,7 +63,6 @@ context 'example 4' do
   end
 end
 
-
 context 'example 2' do
   # open file, seek to start position,
   # read the period of sound in to a bufffer,
@@ -70,7 +70,7 @@ context 'example 2' do
   # print the reduced information as a histogram
   it 'can look at a buffer of samples' do
     # look at start for period in seconds
-    start = 30.0
+    start = 13.0
     period = 1.5
     block_period = 0.025
     input = LibSoX.open_read './spec/fixtures/partita.wav'
@@ -85,31 +85,22 @@ context 'example 2' do
     line = '=' * 35
 
     blocks = (period / block_period).ceil
-    puts blocks
 
     blocks.times do |block|
-      puts "b #{block}"
       count = input.read(buffer.raw_data, block_size)
-      puts "count #{count}"
       contents = buffer.contents
-      right = left = 0x7FFFFFFF
-      count.times do |i|
-        #puts i
-        test = contents[i]
-        #puts "sample #{test}"
-        i.odd? && test > right && right = test
-        i.even? && test > left && left = test
+      samples = contents.map { |v| buffer.to_float(v).magnitude }
+      rmax = lmax = 0.0
+      buffer.contents.each_with_index do |v, i|
+        i.even? && rmax < samples[i] && rmax = samples[i]
+        i.odd? && lmax < samples[i] && lmax = samples[i]
       end
-      puts left
-      puts right
-      left = buffer.to_float left
-      right = buffer.to_float right
-      point = start_secs + block * block_period
-      l = (1 - left) * 35 + 0.5
-      r = (1 - right) * 35 + 0.5
-
-      graph << sprintf("%8.3f %d %d", point, l, r)
+      point = start + block * block_period
+      l = (1- lmax) * 35 + 0.5
+      r = (1- rmax) * 35 + 0.5
+      graph << sprintf("%8.3f %d %d\n", point, l.round(3), r.round(3))
     end
+    input.close
     puts graph
   end
 end

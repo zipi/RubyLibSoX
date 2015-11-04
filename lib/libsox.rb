@@ -83,23 +83,26 @@ class EffectHandler
 end
 
 class Buffer
+  # manage an array of 32bit integers used a buffer of samples
   attr_accessor :raw_data
+  PKA = 'i*'
 
   def initialize(size)
     values = Array.new(size, 0)
-    @raw_data = values.pack('L!*')
+    @raw_data = values.pack(PKA)
   end
 
   def contents
-    @raw_data.unpack('L!*')
+    @raw_data.unpack(PKA)
+  end
+
+  def repack(values)
+    @raw_data = values.pack(PKA)
   end
 
   def to_float(value)
-    puts value
     max = 0x7FFFFFFF
-    ret = value * (1.0 / (max + 1.0))
-    puts ret
-    ret
+    value * (1.0 / (max + 1.0))
   end
 end
 
