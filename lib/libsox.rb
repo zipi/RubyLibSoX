@@ -1,9 +1,13 @@
 require 'ruby_libsox'
 
 class Chain
+  attr_accessor :input_format, :output_format
+
   def initialize(input, output)
     @input = input
     @output = output
+    @input_format = input.signal
+    @output_format = output.signal
     @chain = LibSoXEffectsChain.new(@input, @output)
   end
 
@@ -25,12 +29,23 @@ class Chain
     else
       effect.options(*args)
     end
-    @chain.add_effect(effect, @input.signal)
+    puts @input_format.object_id
+    puts @output_format.object_id
+    @chain.add_effect(effect, @input_format, @output_format)
     self
   end
 
   def flow
     @chain.flow
+  end
+
+  def dump_signal(name, sig)
+    puts "#{name} signal #{sig.object_id}"
+    puts "rate #{sig.rate}"
+    puts "channels #{sig.channels}"
+    puts "precision #{sig.precision}"
+    puts "length #{sig.length}"
+    puts "---------------------"
   end
 
   private
@@ -125,6 +140,20 @@ module Extension
 
   def new_buffer(size = 1024)
     Buffer.new(size)
+  end
+
+  def play_filetype
+    alsa || coreaudio
+  end
+
+  private
+
+  def alsa
+    LibSoX.find_format('alsa') && 'alsa'
+  end
+
+  def coreaudio
+    LibSoX.find_format('coreaudio') && 'coreaudio'
   end
 end
 

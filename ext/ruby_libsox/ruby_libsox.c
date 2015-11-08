@@ -91,15 +91,18 @@ VALUE libsox_effects_chain_new(VALUE class, VALUE input, VALUE output) {
   return chain;
 }
 
-VALUE libsox_effects_chain_add_effect(VALUE chain, VALUE effect, VALUE signal) {
+VALUE libsox_effects_chain_add_effect(VALUE chain, VALUE effect, VALUE in_signal, VALUE out_signal) {
   sox_effects_chain_t *c_chain;
   sox_effect_t *c_effect;
-  sox_signalinfo_t *c_signal;
+  sox_signalinfo_t *c_in_signal;
+  sox_signalinfo_t *c_out_signal;
+
+  Data_Get_Struct(in_signal, sox_signalinfo_t, c_in_signal);
+  Data_Get_Struct(out_signal, sox_signalinfo_t, c_out_signal);
 
   Data_Get_Struct(chain, sox_effects_chain_t, c_chain);
   Data_Get_Struct(effect, sox_effect_t, c_effect);
-  Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
-  return INT2NUM(sox_add_effect(c_chain, c_effect, c_signal, c_signal));
+  return INT2NUM(sox_add_effect(c_chain, c_effect, c_in_signal, c_out_signal));
 }
 
 VALUE libsox_effects_chain_flow_effects(VALUE chain) {
@@ -174,11 +177,20 @@ VALUE libsox_signal_channels_set(VALUE signal, VALUE channels) {
   return channels;
 }
 
-VALUE libsox_signal_alloc(VALUE klass) {
+VALUE libsox_signal_alloc(VALUE signal) {
   sox_signalinfo_t *c_signal = ALLOC(sox_signalinfo_t);
 
   memset(c_signal, 0, sizeof(sox_signalinfo_t));
-  return Data_Wrap_Struct(klass, 0, free, c_signal);
+  return Data_Wrap_Struct(signal, 0, free, c_signal);
+}
+
+VALUE libsox_signal_dup(VALUE signal) {
+  sox_signalinfo_t *c_signal;
+  sox_signalinfo_t *c_dup_signal = ALLOC(sox_signalinfo_t);
+
+  Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
+  c_dup_signal = c_signal; /* go deep */
+  return Data_Wrap_Struct(LibSoXSignal, 0, free, c_dup_signal);
 }
 
 // LibSoXEncoding
@@ -411,11 +423,12 @@ void Init_ruby_libsox(void) {
 
   LibSoXEffectsChain  = rb_define_class("LibSoXEffectsChain", rb_cObject);
   rb_define_singleton_method(LibSoXEffectsChain, "new", libsox_effects_chain_new, 2);
-  rb_define_method(LibSoXEffectsChain, "add_effect", libsox_effects_chain_add_effect, 2);
+  rb_define_method(LibSoXEffectsChain, "add_effect", libsox_effects_chain_add_effect, 3);
   rb_define_method(LibSoXEffectsChain, "flow", libsox_effects_chain_flow_effects, 0);
 
   LibSoXSignal = rb_define_class("LibSoXSignal", rb_cObject);
   rb_define_alloc_func(LibSoXSignal, libsox_signal_alloc);
+  rb_define_method(LibSoXSignal, "dup", libsox_signal_dup, 0);
   rb_define_method(LibSoXSignal, "precision", libsox_signal_precision, 0);
   rb_define_method(LibSoXSignal, "precision=", libsox_signal_precision_set, 1);
   rb_define_method(LibSoXSignal, "channels", libsox_signal_channels, 0);
