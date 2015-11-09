@@ -1,8 +1,6 @@
 require 'ruby_libsox'
 
 class Chain
-  attr_accessor :input_format, :output_format
-
   def initialize(input, output)
     @input = input
     @output = output
@@ -29,8 +27,6 @@ class Chain
     else
       effect.options(*args)
     end
-    puts @input_format.object_id
-    puts @output_format.object_id
     @chain.add_effect(effect, @input_format, @output_format)
     self
   end
@@ -46,6 +42,22 @@ class Chain
     puts "precision #{sig.precision}"
     puts "length #{sig.length}"
     puts "---------------------"
+  end
+
+  def input_format=(value)
+    @input_format = value
+  end
+
+  def input_format
+    @input_format
+  end
+
+  def output_format=(value)
+    @output_format = value
+  end
+
+  def output_format
+    @output_format
   end
 
   private

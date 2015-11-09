@@ -304,7 +304,6 @@ VALUE libsox_open_read(int argc, VALUE *argv, VALUE class) {
   sox_encodinginfo_t *c_encoding = NULL;
   sox_format_t       *c_format;
 
-  // libsox_new(LibSoX);
   rb_scan_args(argc, argv, "13", &path, &signal, &encoding, &filetype);
   if (!NIL_P(signal)) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
   if (!NIL_P(encoding)) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
@@ -323,7 +322,6 @@ VALUE libsox_open_write(int argc, VALUE *argv, VALUE class) {
   sox_oob_t *c_oob = NULL;
   sox_format_t *c_format;
 
-  // libsox_new(LibSoX);
   rb_scan_args(argc, argv, "14", &path, &signal, &encoding, &filetype, &oob);
   if (signal != Qnil) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
   if (encoding != Qnil) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
