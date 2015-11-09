@@ -1,9 +1,15 @@
 # RubyLibSoX
+
 Ruby extension to wrap LibSoX
+
 ## Still under development
+
+The biggest outstanding issues are:
 - Handle signal information so rate changes don't alter playback speed.
-- Ruby implementation of EffectHandler that can be inherited.
+- Ruby implementation of EffectHandler that can be inherited, so effects can be written in Ruby.
+
 ## This is not the gem you are looking for
+
 [SoX - Sound eXchange](http://sox.sourceforge.net/) is an amazing command line utility and it runs on every operating system, that I'm willing to use. Chances are any sound processing task you have in mind can be done quickly and easily from the command line.  For example the example0 problem from the libsox source code would be simple in the command line.
 ```sox input.wav output.wav vol 3dB flanger```
 Using backticks or the system method it's easy to do this kind of file processing inside your ruby programs. There are also a few gems that implment a ruby interface to sox command line.
@@ -74,5 +80,8 @@ THE SOFTWARE.
 
 ## Attribution
 
-This project started as a fork of [faridco/rsox](https://github.com/faridco/rsox). I was looking for low level access to libsox from ruby and that was the best available, but
-it didn't do everything I needed.  It did get me started on extending Ruby with C-lang and was very helpful to get this project going initally. Since then I've changed so much it no longer much resembles the rsox project.  The most significant change was to limit the C-lang to exposing internals of libsox and providing some Ruby classes to create and API that is better suited to Ruby programs and can be tested. So a tip of the hat to Farid Bagishev, and thanks for everything I learned from looking at the rsox gem.
+This project started as a fork of [faridco/rsox](https://github.com/faridco/rsox). I was looking for low level access to libsox from ruby and that was the best available,
+but it didn't do everything I needed.
+It did get me started on extending Ruby with C-lang and was very helpful. Since then I've changed this project so much it no longer much resembles the rsox project.
+The most significant change was to limit the C-lang to exposing internals of libsox and providing some Ruby classes to create and API that is better suited to Ruby programs and can be tested.
+So a tip of the hat to Farid Bagishev, and thanks for everything I learned from your rsox gem.
