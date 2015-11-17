@@ -1,5 +1,11 @@
 #include <ruby.h>
 #include <sox.h>
+#include <stdio.h>
+
+#ifdef min
+#undef min
+#endif
+#define min(a, b) ((a) <= (b) ? (a) : (b))
 
 static VALUE LibSoX;
 static VALUE LibSoXFormat;
@@ -71,6 +77,21 @@ VALUE libsox_effect_options(VALUE effect, VALUE *args) {
   }
   Data_Get_Struct(effect, sox_effect_t, c_effect);
   return INT2NUM(sox_effect_options(c_effect, i, c_options));
+}
+
+VALUE libsox_effect_or_flags(VALUE effect, VALUE flags) {
+  sox_effect_t *c_effect;
+  uint c_flags = NUM2INT(flags);
+
+  Data_Get_Struct(effect, sox_effect_t, c_effect);
+  c_effect->handler.flags |= c_flags;
+  return INT2NUM(c_effect->handler.flags);
+}
+
+VALUE libsox_effect_flags(VALUE effect) {
+  sox_effect_t *c_effect;
+  Data_Get_Struct(effect, sox_effect_t, c_effect);
+  return INT2NUM(c_effect->handler.flags);
 }
 
 // LibSoXEffectsChain
@@ -177,11 +198,16 @@ VALUE libsox_signal_channels_set(VALUE signal, VALUE channels) {
   return channels;
 }
 
+static void libsox_signal_free(void *ptr) {
+  // looks like this is freed by the flow
+  // free(ptr);
+}
+
 VALUE libsox_signal_alloc(VALUE signal) {
   sox_signalinfo_t *c_signal = ALLOC(sox_signalinfo_t);
 
   memset(c_signal, 0, sizeof(sox_signalinfo_t));
-  return Data_Wrap_Struct(signal, 0, free, c_signal);
+  return Data_Wrap_Struct(signal, 0, libsox_signal_free, c_signal);
 }
 
 VALUE libsox_signal_dup(VALUE signal) {
@@ -190,7 +216,7 @@ VALUE libsox_signal_dup(VALUE signal) {
 
   Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
   c_dup_signal = c_signal; /* go deep */
-  return Data_Wrap_Struct(LibSoXSignal, 0, free, c_dup_signal);
+  return Data_Wrap_Struct(LibSoXSignal, 0, libsox_signal_free, c_dup_signal);
 }
 
 // LibSoXEncoding
@@ -232,6 +258,7 @@ VALUE libsox_encoding_compression(VALUE encoding) {
   Data_Get_Struct(encoding, sox_encodinginfo_t, c_enc);
   return DBL2NUM(c_enc->compression);
 }
+
 VALUE libsox_encoding_alloc(VALUE klass) {
   sox_encodinginfo_t *c_encoding = ALLOC(sox_encodinginfo_t);
 
@@ -250,7 +277,7 @@ VALUE libsox_format_init(VALUE class) {
 }
 
 VALUE libsox_format_quit(VALUE class) {
-  printf("quit format");
+  printf("quit format\n");
   sox_format_quit();
   return Qnil;
 }
@@ -298,7 +325,7 @@ VALUE libsox_format_seek(VALUE format, VALUE offset) {
 }
 
 // LibSoX
-VALUE libsox_open_read(int argc, VALUE *argv, VALUE class) {
+VALUE libsox_open_read(int argc, VALUE *argv, VALUE lib) {
   VALUE path, signal, encoding, filetype;
   sox_signalinfo_t   *c_signal   = NULL;
   sox_encodinginfo_t *c_encoding = NULL;
@@ -315,7 +342,7 @@ sox_bool libsox_overwrite_callback(const char *filename) {
   return sox_false;
 }
 
-VALUE libsox_open_write(int argc, VALUE *argv, VALUE class) {
+VALUE libsox_open_write(int argc, VALUE *argv, VALUE lib) {
   VALUE path, signal, encoding, filetype, oob;
   sox_signalinfo_t *c_signal = NULL;
   sox_encodinginfo_t *c_encoding = NULL;
@@ -335,7 +362,46 @@ VALUE libsox_open_write(int argc, VALUE *argv, VALUE class) {
   return Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
 }
 
-VALUE libsox_find_format(VALUE class, VALUE filetype) {
+VALUE libsox_open_mem_read(int argc, VALUE *argv, VALUE lib) {
+  VALUE buffer, buffer_size, signal, encoding, filetype;
+  sox_signalinfo_t   *c_signal   = NULL;
+  sox_encodinginfo_t *c_encoding = NULL;
+  sox_format_t       *c_format;
+  sox_sample_t       *c_buffer;
+
+  rb_scan_args(argc, argv, "23", &buffer, &buffer_size, &signal, &encoding, &filetype);
+  if (!NIL_P(signal)) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
+  if (!NIL_P(encoding)) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
+  c_buffer = (sox_sample_t *)StringValuePtr(buffer);
+  c_format = sox_open_mem_read(c_buffer, NUM2INT(buffer_size), c_signal, c_encoding, filetype == Qnil ? NULL : StringValuePtr(filetype));
+  return Data_Wrap_Struct(LibSoXFormat, 0, libsox_format_close, c_format);
+}
+
+VALUE libsox_open_mem_write(int argc, VALUE *argv, VALUE lib) {
+  VALUE buffer, buffer_size, signal, encoding, filetype, oob;
+  sox_signalinfo_t   *c_signal = NULL;
+  sox_encodinginfo_t *c_encoding = NULL;
+  sox_oob_t          *c_oob = NULL;
+  sox_format_t       *c_format;
+  sox_sample_t       *c_buffer;
+
+  rb_scan_args(argc, argv, "24", &buffer, &buffer_size, &signal, &encoding, &filetype, &oob);
+  if(signal != Qnil) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
+  if(encoding != Qnil) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
+  if(oob != Qnil) Data_Get_Struct(oob, sox_oob_t, c_oob);
+  c_buffer = (sox_sample_t *)StringValuePtr(buffer);
+  c_format = sox_open_mem_write((void *)c_buffer, (size_t)NUM2INT(buffer_size),
+    c_signal,
+    c_encoding,
+    filetype == Qnil ? NULL : StringValuePtr(filetype),
+    c_oob);
+  if(c_format == NULL)
+    return Qnil;
+  else
+    return Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
+}
+
+VALUE libsox_find_format(VALUE lib, VALUE filetype) {
   sox_format_handler_t const * find_format;
 
   find_format = sox_find_format(StringValuePtr(filetype), sox_false);
@@ -346,9 +412,27 @@ VALUE libsox_find_format(VALUE class, VALUE filetype) {
 }
 
 static void libsox_destroy(void *instance) {
-  printf("quit all");
+  printf("quit all\n");
   sox_format_quit();
   sox_quit();
+}
+
+static void output_message(unsigned level, const char *filename, const char *fmt, va_list ap)
+{
+  char const * const str[] = {"FAIL", "WARN", "INFO", "DBUG"};
+  if (sox_globals.verbosity >= level) {
+    char base_name[128];
+    sox_basename(base_name, sizeof(base_name), filename);
+    fprintf(stderr, "%s %s: ", str[min(level - 1, 3)], base_name);
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+  }
+}
+
+VALUE libsox_enable_debug(VALUE lib) {
+  sox_globals.verbosity = 6;
+  sox_globals.output_message_handler = output_message;
+  return Qnil;
 }
 
 VALUE libsox_new(VALUE class) {
@@ -363,8 +447,21 @@ VALUE libsox_new(VALUE class) {
 }
 
 void Init_ruby_libsox(void) {
+  rb_define_global_const("SOX_UNSPEC", INT2NUM(0));
   rb_define_global_const("SOX_SUCCESS", INT2NUM(0));
   rb_define_global_const("SOX_EOF", INT2NUM(-1));
+
+  rb_define_global_const("SOX_EFF_CHAN",     INT2NUM(1));     /**< Client API: Effect might alter the number of channels */
+  rb_define_global_const("SOX_EFF_RATE",     INT2NUM(2));     /**< Client API: Effect might alter sample rate */
+  rb_define_global_const("SOX_EFF_PREC",     INT2NUM(4));     /**< Client API: Effect does its own calculation of output sample precision (otherwise a default value is taken, depending on the presence of SOX_EFF_MODIFY) */
+  rb_define_global_const("SOX_EFF_LENGTH",   INT2NUM(8));     /**< Client API: Effect might alter audio length (as measured in time units, not necessarily in samples) */
+  rb_define_global_const("SOX_EFF_MCHAN",    INT2NUM(16));    /**< Client API: Effect handles multiple channels internally */
+  rb_define_global_const("SOX_EFF_NULL",     INT2NUM(32));    /**< Client API: Effect does nothing (can be optimized out of chain) */
+  rb_define_global_const("SOX_EFF_DEPRECATED", INT2NUM(64));  /**< Client API: Effect will soon be removed from SoX */
+  rb_define_global_const("SOX_EFF_GAIN",     INT2NUM(128));   /**< Client API: Effect does not support gain -r */
+  rb_define_global_const("SOX_EFF_MODIFY",   INT2NUM(256));   /**< Client API: Effect does not modify sample values (but might remove or duplicate samples or insert zeros) */
+  rb_define_global_const("SOX_EFF_ALPHA",    INT2NUM(512));   /**< Client API: Effect is experimental/incomplete */
+  rb_define_global_const("SOX_EFF_INTERNAL", INT2NUM(1024));  /**< Client API: Effect present in libSoX but not valid for use by SoX command-line tools */
 
   int encode = 0;
   rb_define_global_const("SOX_ENCODING_UNKNOWN", INT2NUM(encode++));   /**< encoding has not yet been determined */
@@ -401,9 +498,12 @@ void Init_ruby_libsox(void) {
 
   LibSoX = rb_define_class("LibSoX", rb_cObject);
   rb_define_singleton_method(LibSoX, "new", libsox_new, 0);
-  rb_define_singleton_method(LibSoX, "open_read", libsox_open_read, -1);
-  rb_define_singleton_method(LibSoX, "open_write", libsox_open_write, -1);
+  rb_define_method(LibSoX, "open_read", libsox_open_read, -1);
+  rb_define_method(LibSoX, "open_write", libsox_open_write, -1);
+  rb_define_method(LibSoX, "enable_debug", libsox_enable_debug, 0);
   rb_define_singleton_method(LibSoX, "find_format", libsox_find_format, 1);
+  rb_define_method(LibSoX, "open_mem_read", libsox_open_mem_read, -1);
+  rb_define_method(LibSoX, "open_mem_write", libsox_open_mem_write, -1);
 
   /*
   LibSoXEffectHandler = rb_define_class("LibSoXEffectHandler", rb_cObject);
@@ -437,7 +537,7 @@ void Init_ruby_libsox(void) {
   rb_define_method(LibSoXSignal, "rate=", libsox_signal_rate_set,1);
 
   LibSoXEncoding = rb_define_class("LibSoXEncoding", rb_cObject);
-  rb_define_alloc_func(LibSoXEncoding, libsox_signal_alloc);
+  rb_define_alloc_func(LibSoXEncoding, libsox_encoding_alloc);
   rb_define_method(LibSoXEncoding, "encoding", libsox_encoding_encoding, 0);
   rb_define_method(LibSoXEncoding, "encoding=", libsox_encoding_encoding_set, 1);
   rb_define_method(LibSoXEncoding, "bps", libsox_encoding_bps, 0);
@@ -447,6 +547,8 @@ void Init_ruby_libsox(void) {
   LibSoXEffect = rb_define_class("LibSoXEffect", rb_cObject);
   rb_define_singleton_method(LibSoXEffect, "new", libsox_effect_new, 1);
   rb_define_method(LibSoXEffect, "options", libsox_effect_options, -2);
+  rb_define_method(LibSoXEffect, "or_flags", libsox_effect_or_flags, 1);
+  rb_define_method(LibSoXEffect, "flags", libsox_effect_flags, 0);
 
   LibSoXFormatHandler = rb_define_class("LibSoXFormatHander", rb_cObject);
   /*

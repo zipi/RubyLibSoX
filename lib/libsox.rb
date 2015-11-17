@@ -25,9 +25,18 @@ class Chain
     if %w(input output).include? name
       effect.options(input(name) || output(name))
     else
-      effect.options(*args)
+      effect.options(*args) == SOX_EOF && raise("failed effect option")
     end
-    @chain.add_effect(effect, @input_format, @output_format)
+    @chain.add_effect(effect, @input_format, @output_format) != SOX_SUCCESS && raise("failed effect add")
+    self
+  end
+
+  def add_flagged_effect(flags, name, *args)
+    # for real effects not input output
+    effect = make_effect(name)
+    effect.options(*args) == SOX_EOF && raise("failed effect option")
+    effect.or_flags(flags)
+    @chain.add_effect(effect, @input_format, @output_format) != SOX_SUCCESS && raise("fialed effect add")
     self
   end
 
@@ -133,11 +142,7 @@ class Buffer
   end
 end
 
-module Extension
-  def new_chain(input, output)
-    Chain.new(input, output)
-  end
-
+module Inclusion
   def new_signal_info(params)
     signal = LibSoXSignal.new
     params.each { |k, v| signal.send(k.to_s+'=', v) }
@@ -148,10 +153,6 @@ module Extension
     encoding = LibSoXEncoding.new
     params.each { |k,v| encoding.send(k.to_s+'=', v) }
     encoding
-  end
-
-  def new_buffer(size = 1024)
-    Buffer.new(size)
   end
 
   def play_filetype
@@ -167,6 +168,7 @@ module Extension
   def coreaudio
     LibSoX.find_format('coreaudio') && 'coreaudio'
   end
+
 end
 
-LibSoX.extend Extension
+LibSoX.include Inclusion
