@@ -18,29 +18,6 @@ static VALUE LibSoXFormatHandler;
 
 static VALUE library_instance;
 
-// LibSoXEffectHandler
-//
-//
-/*
-static sox_effect_handler_t const * empty_handler(void)
-
-  static sox_effect_handler_t *handler = lsx_malloc(sizeof(sox_effect_handler_t));
-  // name usage flags getopts start flow drain stop kill priv_size
-  return &handler;
-}
-
-VALUE libsox_effect_handler_new(VALUE class) {
-  sox_effect_handler_t const *c_effect_handler = empty_handler();
-  value 
-  c_effect_handler->name = 
-  c_effect_handler->flags = 
-  c_effect_handler->flow = 
-
-
-
-  effect = Data_Wrap_Struct(LibSoXEffect, 0, free, c_effect);
-}
-*/
 
 // LibSoXEffect
 VALUE libsox_effect_new(VALUE class, VALUE name) {
@@ -51,7 +28,7 @@ VALUE libsox_effect_new(VALUE class, VALUE name) {
   c_effect_handler = sox_find_effect(StringValuePtr(name));
 
   if(c_effect_handler == NULL) {
-    return (VALUE) NULL;
+    return Qnil;
   }
   c_effect = sox_create_effect(c_effect_handler);
   effect = Data_Wrap_Struct(LibSoXEffect, 0, free, c_effect);
@@ -335,7 +312,7 @@ VALUE libsox_open_read(int argc, VALUE *argv, VALUE lib) {
   if (!NIL_P(signal)) Data_Get_Struct(signal, sox_signalinfo_t, c_signal);
   if (!NIL_P(encoding)) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
   c_format = sox_open_read(StringValuePtr(path), c_signal, c_encoding, filetype == Qnil ? NULL : StringValuePtr(filetype));
-  return Data_Wrap_Struct(LibSoXFormat, 0, libsox_format_close, c_format);
+  return c_format == NULL ? Qnil : Data_Wrap_Struct(LibSoXFormat, 0, libsox_format_close, c_format);
 }
 
 sox_bool libsox_overwrite_callback(const char *filename) {
@@ -359,7 +336,7 @@ VALUE libsox_open_write(int argc, VALUE *argv, VALUE lib) {
     filetype == Qnil ? NULL : StringValuePtr(filetype),
     c_oob,
     rb_block_given_p() ? libsox_overwrite_callback : NULL);
-  return Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
+  return c_format == NULL ? Qnil : Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
 }
 
 VALUE libsox_open_mem_read(int argc, VALUE *argv, VALUE lib) {
@@ -374,7 +351,7 @@ VALUE libsox_open_mem_read(int argc, VALUE *argv, VALUE lib) {
   if (!NIL_P(encoding)) Data_Get_Struct(encoding, sox_encodinginfo_t, c_encoding);
   c_buffer = (sox_sample_t *)StringValuePtr(buffer);
   c_format = sox_open_mem_read(c_buffer, NUM2INT(buffer_size), c_signal, c_encoding, filetype == Qnil ? NULL : StringValuePtr(filetype));
-  return Data_Wrap_Struct(LibSoXFormat, 0, libsox_format_close, c_format);
+  return c_format == NULL ? Qnil : Data_Wrap_Struct(LibSoXFormat, 0, libsox_format_close, c_format);
 }
 
 VALUE libsox_open_mem_write(int argc, VALUE *argv, VALUE lib) {
@@ -395,10 +372,7 @@ VALUE libsox_open_mem_write(int argc, VALUE *argv, VALUE lib) {
     c_encoding,
     filetype == Qnil ? NULL : StringValuePtr(filetype),
     c_oob);
-  if(c_format == NULL)
-    return Qnil;
-  else
-    return Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
+  return c_format == NULL ? Qnil : Data_Wrap_Struct(LibSoXFormat, 0, 0, c_format);
 }
 
 VALUE libsox_find_format(VALUE lib, VALUE filetype) {
@@ -432,7 +406,7 @@ static void output_message(unsigned level, const char *filename, const char *fmt
 VALUE libsox_enable_debug(VALUE lib) {
   sox_globals.verbosity = 6;
   sox_globals.output_message_handler = output_message;
-  return Qnil;
+  return lib;
 }
 
 VALUE libsox_new(VALUE class) {
@@ -566,6 +540,27 @@ void Init_ruby_libsox(void) {
 
 /*
 
+// LibSoXEffectHandler
+//
+//
+static sox_effect_handler_t const * empty_handler(void)
+
+  static sox_effect_handler_t *handler = lsx_malloc(sizeof(sox_effect_handler_t));
+  // name usage flags getopts start flow drain stop kill priv_size
+  return &handler;
+}
+
+VALUE libsox_effect_handler_new(VALUE class) {
+  sox_effect_handler_t const *c_effect_handler = empty_handler();
+  value 
+  c_effect_handler->name = 
+  c_effect_handler->flags = 
+  c_effect_handler->flow = 
+
+
+
+  effect = Data_Wrap_Struct(LibSoXEffect, 0, free, c_effect);
+}
 
 VALUE libsox_set_bufsize(VALUE self, VALUE bufsize) {
   sox_globals.bufsiz = FIX2INT(bufsize);

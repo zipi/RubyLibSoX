@@ -157,17 +157,20 @@ context 'example 5' do
     buffer_size = 123456
     buffer = Array.new(buffer_size, 0).pack('i*')
     output = lib.open_mem_write(buffer, buffer_size, input.signal, nil, "sox");
-    raise "no support for POSIX fmemopen" unless output
-    expect(output).to be_a LibSoXFormat
-    while (count = input.read(samples.raw_data, MaxSamples)) > 0 do
-      puts "got buffer #{count}"
-      expect(output.write(samples.raw_data, count)).to eq count
-    end
+    if output
+      expect(output).to be_a LibSoXFormat
+      while (count = input.read(samples.raw_data, MaxSamples)) > 0 do
+        puts "got buffer #{count}"
+        expect(output.write(samples.raw_data, count)).to eq count
+      end
 
-    memin = lib.open_mem_read(buffer, buffer.size);
-    memout = lib.open_write('tmp/buffered.wav', memin.signal);
-    while (count = memin.read(samples.raw_data, MaxSamples)) > 0 do
-      expect(memout.write(sample.raw_data, count)).to eq count
+      memin = lib.open_mem_read(buffer, buffer.size);
+      memout = lib.open_write('tmp/buffered.wav', memin.signal);
+      while (count = memin.read(samples.raw_data, MaxSamples)) > 0 do
+        expect(memout.write(sample.raw_data, count)).to eq count
+      end
+    else
+      puts "libsox was compiled without support for POSIX fmemopen, you're probably on a Mac"
     end
   end
 end
