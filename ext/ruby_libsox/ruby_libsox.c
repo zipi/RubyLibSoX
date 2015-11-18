@@ -447,6 +447,7 @@ VALUE libsox_new(VALUE class) {
 }
 
 void Init_ruby_libsox(void) {
+  int encode = 0;
   rb_define_global_const("SOX_UNSPEC", INT2NUM(0));
   rb_define_global_const("SOX_SUCCESS", INT2NUM(0));
   rb_define_global_const("SOX_EOF", INT2NUM(-1));
@@ -463,7 +464,6 @@ void Init_ruby_libsox(void) {
   rb_define_global_const("SOX_EFF_ALPHA",    INT2NUM(512));   /**< Client API: Effect is experimental/incomplete */
   rb_define_global_const("SOX_EFF_INTERNAL", INT2NUM(1024));  /**< Client API: Effect present in libSoX but not valid for use by SoX command-line tools */
 
-  int encode = 0;
   rb_define_global_const("SOX_ENCODING_UNKNOWN", INT2NUM(encode++));   /**< encoding has not yet been determined */
 
   rb_define_global_const("SOX_ENCODING_SIGN2", INT2NUM(encode++));      /**< signed linear 2's comp: Mac */
