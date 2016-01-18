@@ -16,4 +16,6 @@ Gem::Specification.new do |s|
   s.has_rdoc = false
 
   s.extensions = [ "ext/ruby_libsox/extconf.rb" ]
+
+  s.add_development_dependancy "rake-compiler"
 end
