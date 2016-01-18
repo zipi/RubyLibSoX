@@ -24,9 +24,7 @@ It's unlikely that you need to operate at this level on a sound file because all
 
 Today this project is not ready to be published as a gem but to get the lastest development image you can put this line in your Gemfile
 
-gem 'ruby_libsox', git: 'git://github.com/zipi/ruby_libsox.git'
-
-> TODO: test that github gem path
+gem 'ruby_libsox', git: 'https://github.com/zipi/Ruby_LibSoX'
 
 and run bundle install
 
