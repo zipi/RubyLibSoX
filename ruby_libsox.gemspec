@@ -8,14 +8,13 @@ Gem::Specification.new do |s|
   s.summary     = 'libSoX binding for Ruby'
   s.description = 'Ruby wrapper for libSoX, the Swiss Army knife of audio manipulation'
 
-  s.authors  = [ 'Scott Moe' ]
+  s.author  = 'Scott Moe'
   s.email    = 'scott.moe@cloudspace.com'
   s.homepage = 'https://github.com/zipi/ruby_libsox'
+  s.files = Dir.glob("ext/**/*.{c,rb}") +
+            Dir.glob("lib/**/*.rb")
 
-  s.rubyforge_project = nil
-  s.has_rdoc = false
-
-  s.extensions = [ "ext/ruby_libsox/extconf.rb" ]
+  s.extensions << "ext/ruby_libsox/extconf.rb"
 
   s.add_development_dependency "rake-compiler"
 end
